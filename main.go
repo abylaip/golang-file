@@ -50,7 +50,7 @@ type Request struct {
 	Header map[string]string
 }
 
-func parseRequest(data []byte) *Request {
+func ParseRequest(data []byte) *Request {
 	firstLine := ""
 	index := 0
 
@@ -102,7 +102,7 @@ func handleConnection(client net.Conn) {
 	fmt.Println(string(tmp))
 	fmt.Println("--- end ----")
 
-	request := parseRequest(tmp)
+	request := ParseRequest(tmp)
 
 	fmt.Println(request)
 
