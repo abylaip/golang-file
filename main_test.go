@@ -27,5 +27,9 @@ the body
 func TestParseRequest(t *testing.T) {
 	req := ParseRequest([]byte(data))
 
-	assert.Equal(t, req.Method, "GET")
+	assert.Equal(t, "GET", req.Method)
+	assert.Equal(t, "/", req.Path)
+	assert.Equal(t, "localhost:3000", req.Header["Host"])
+	assert.Equal(t, "max-age=0", req.Header["Cache-Control"])
+	assert.Equal(t, "?1", req.Header["Sec-Fetch-User"])
 }

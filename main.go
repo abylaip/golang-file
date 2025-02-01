@@ -51,15 +51,15 @@ type Request struct {
 }
 
 func ParseRequest(data []byte) *Request {
-	firstLine := ""
+	var firstLine strings.Builder
 	index := 0
 
 	for data[index] != '\n' {
-		firstLine += string(data[index])
+		firstLine.WriteByte(data[index])
 		index++
 	}
 
-	chunks := strings.Split(firstLine, " ")
+	chunks := strings.Split(firstLine.String(), " ")
 
 	method := chunks[0]
 	path := chunks[1]
@@ -67,18 +67,27 @@ func ParseRequest(data []byte) *Request {
 	request := &Request{
 		Method: method,
 		Path:   path,
+		Header: make(map[string]string),
 	}
-	line := ""
+	var line strings.Builder
 	for index < len(data) {
 		if data[index] == ' ' {
+			index++
 			continue
 		}
-		line += string(data[index])
+		if data[index] == '\n' && data[index+1] == '\n' {
+			break
+		}
 		if data[index] == '\n' {
-			chunks := strings.Split(line, ":")
-			fmt.Println(chunks)
-			// request.Header[chunks[0]] = chunks[1]
-			line = ""
+			chunks := strings.SplitN(line.String(), ":", 2)
+			if len(chunks) == 2 {
+				key := strings.TrimSpace(chunks[0])
+				value := strings.TrimSpace(chunks[1])
+				request.Header[key] = value
+			}
+			line.Reset()
+		} else {
+			line.WriteByte(data[index])
 		}
 		index++
 	}
