@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io"
 	"log"
 	"net"
@@ -24,7 +27,7 @@ func main() {
 	defer server.Close()
 
 	for {
-		fmt.Println("Litening...")
+		fmt.Println("Listening...")
 		client, err := server.Accept()
 		if err != nil {
 			fmt.Println(err)
@@ -48,6 +51,7 @@ type Request struct {
 	Path   string
 
 	Header map[string]string
+	Body   []byte
 }
 
 func ParseRequest(data []byte) *Request {
@@ -68,14 +72,11 @@ func ParseRequest(data []byte) *Request {
 		Method: method,
 		Path:   path,
 		Header: make(map[string]string),
+		Body:   nil,
 	}
 	var line strings.Builder
 	for index < len(data) {
-		if data[index] == ' ' {
-			index++
-			continue
-		}
-		if data[index] == '\n' && data[index+1] == '\n' {
+		if index+1 < len(data) && (data[index] == '\n' && data[index+1] == '\n') {
 			break
 		}
 		if data[index] == '\n' {
@@ -90,6 +91,13 @@ func ParseRequest(data []byte) *Request {
 			line.WriteByte(data[index])
 		}
 		index++
+	}
+
+	if method == "POST" {
+		if _, ok := request.Header["Content-Length"]; ok {
+			body := data[index:]
+			request.Body = bytes.Clone(body[:len(body)])
+		}
 	}
 
 	return request
@@ -107,20 +115,18 @@ func handleConnection(client net.Conn) {
 		return
 	}
 	fmt.Printf("size = %d", n)
-	fmt.Println("--- begin ----")
-	fmt.Println(string(tmp))
-	fmt.Println("--- end ----")
+	// fmt.Println("--- begin ----")
+	// fmt.Println(string(tmp))
+	// fmt.Println("--- end ----")
 
-	request := ParseRequest(tmp)
-
-	fmt.Println(request)
-
+	request := ParseRequest(tmp[:n])
 	var response string
 	if request.Path == "/" {
 		response = "HTTP/1.1 200 OK\n" + "Content-Type: text/html;\n\n"
 		response += handleHomePath()
 	} else if request.Path == "/upload" && request.Method == "POST" {
-		handleUpload()
+		handleUpload(request)
+		response = "HTTP/1.1 201 Created\n" + "Content-Type: text/html;\n\nImage successfuly created"
 	}
 
 	client.Write([]byte(response))
@@ -136,6 +142,26 @@ func handleHomePath() string {
 	}
 }
 
-func handleUpload() {
-	fmt.Println("handleUpload")
+func handleUpload(request *Request) {
+	fmt.Println(request.Path, request.Method, request.Body)
+	reader := bytes.NewReader(request.Body)
+
+	img, _, err := image.Decode(reader)
+	if err != nil {
+		log.Println("error decoding image")
+		return
+	}
+
+	outFile, err := os.Create("output.jpg")
+	if err != nil {
+		log.Println("error creating file")
+		return
+	}
+	defer outFile.Close()
+
+	err = jpeg.Encode(outFile, img, nil)
+	if err != nil {
+		log.Println("error encoding new image")
+		return
+	}
 }
